@@ -1229,8 +1229,9 @@ def sysinfo():
     print(f"Processor:{model_name}")
 
     # get core count
-    total_cpu_count = int(getoutput("nproc"))
-    print("Cores:", total_cpu_count)
+    total_cpu_count = count_cores() #int(getoutput("nproc")) nproc only counts enabled cores
+    online_cores = int(getoutput("nproc"))
+    print("Total Cores:", total_cpu_count, " Online Cores:", online_cores)
 
     # get architecture
     cpu_arch = pl.machine()
@@ -1384,6 +1385,10 @@ def not_running_daemon_check():
         exit(1)    
 
 def count_cores():
+    '''
+    Returns the numer of cores in the system
+    by counting the number of cpu*-folders in /sys/devices/system/cpu
+    '''
     folder_count = 0
     sys_path = "/sys/devices/system/cpu"
     for dirs in os.listdir(sys_path):
@@ -1391,22 +1396,26 @@ def count_cores():
             folder_count += 1
     return folder_count
 
-def set_core_count(core_count):
+def manage_cores(core_count):
+    '''
+    Enables or disabled a given number of cores
+    '''
     active_cpus = os.cpu_count()
     max_cpus = count_cores()
     
-    # conf = get_config()
-    # if conf.has_option("battery", "core_count"):
-    #     core_count = conf["battery"]["disable_cores"]
-        
-    if core_count > active_cpus and core_count <= max_cpus:
-        for ele in range(active_cpus, core_count):
-            run(f"cpufreqctl.auto-cpufreq --on --core={ele}", shell=True)
-            print(f"core {ele} enabled")
-    elif core_count < active_cpus and core_count >= 0:
-        for ele in range(active_cpus-1, core_count-1, -1):
-            run(f"cpufreqctl.auto-cpufreq --off --core={ele}", shell=True)
-            print(f"core {ele} disabled")
+    conf = get_config()
+    if conf.has_option("battery", "core_count"):
+        core_count = conf["battery"]["disable_cores"]
+        if core_count == 'max':
+            core_count = max_cpus
+        if core_count > active_cpus and core_count <= max_cpus:
+            for ele in range(active_cpus, core_count):
+                run(f"cpufreqctl.auto-cpufreq --on --core={ele}", shell=True)
+                print(f"core {ele} enabled")
+        elif core_count < active_cpus and core_count >= 0:
+            for ele in range(active_cpus-1, core_count-1, -1):
+                run(f"cpufreqctl.auto-cpufreq --off --core={ele}", shell=True)
+                print(f"core {ele} disabled")
 
 if __name__ == '__main__':
     # config = get_config()
@@ -1424,11 +1433,4 @@ if __name__ == '__main__':
     # for ele in range(disable+1, CPUS):
     #     run(f"cpufreqctl.auto-cpufreq --on --core={ele}", shell=True)
     #     print(f"core {ele} enabled")
-
-    print(os.cpu_count())
-    set_core_count(8)
-    print(os.cpu_count())
-    set_core_count(16)
-    print(os.cpu_count())
-
-    
+    ''
